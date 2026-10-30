@@ -1,9 +1,14 @@
 package com.groceryai.backend.service;
 
+import com.groceryai.backend.dto.CreateCustomerRequest;
 import com.groceryai.backend.dto.CustomerResponse;
+import com.groceryai.backend.dto.UpdateCustomerRequest;
 import com.groceryai.backend.entity.City;
 import com.groceryai.backend.entity.Customer;
+import com.groceryai.backend.repository.CityRepository;
 import com.groceryai.backend.repository.CustomerRepository;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,11 +21,17 @@ import java.util.List;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final CityRepository cityRepository;
 
-    public CustomerService(CustomerRepository customerRepository) {
+    public CustomerService(
+            CustomerRepository customerRepository,
+            CityRepository cityRepository) {
+
         this.customerRepository = customerRepository;
+        this.cityRepository = cityRepository;
     }
 
+    // GET all customers
     public List<CustomerResponse> getAllCustomers() {
         return customerRepository.findAll()
                 .stream()
@@ -28,6 +39,7 @@ public class CustomerService {
                 .toList();
     }
 
+    // GET customer by ID
     public CustomerResponse getCustomerById(Integer id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -38,6 +50,7 @@ public class CustomerService {
         return toResponse(customer);
     }
 
+    // GET customers by city
     public List<CustomerResponse> getCustomersByCity(Integer cityId) {
         return customerRepository.findByCity_CityId(cityId)
                 .stream()
@@ -45,16 +58,182 @@ public class CustomerService {
                 .toList();
     }
 
-    private CustomerResponse toResponse(Customer customer) {
-        City city = customer.getCity();
+    // POST create customer
+    @Transactional
+    public CustomerResponse createCustomer(CreateCustomerRequest request) {
 
+        validateCustomerData(
+                request.firstName(),
+                request.middleInitial(),
+                request.lastName(),
+                request.address()
+        );
+
+        if (request.customerId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Customer ID is required."
+            );
+        }
+
+        if (request.cityId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "City ID is required."
+            );
+        }
+
+        if (customerRepository.existsById(request.customerId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Customer already exists with ID: " + request.customerId()
+            );
+        }
+
+        City city = findCity(request.cityId());
+
+        Customer customer = new Customer(
+                request.customerId(),
+                request.firstName().trim(),
+                normalizeOptional(request.middleInitial()),
+                request.lastName().trim(),
+                city,
+                normalizeOptional(request.address())
+        );
+
+        return toResponse(customerRepository.saveAndFlush(customer));
+    }
+
+    // PUT update customer
+    @Transactional
+    public CustomerResponse updateCustomer(
+            Integer id,
+            UpdateCustomerRequest request) {
+
+        validateCustomerData(
+                request.firstName(),
+                request.middleInitial(),
+                request.lastName(),
+                request.address()
+        );
+
+        if (request.cityId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "City ID is required."
+            );
+        }
+
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Customer not found with ID: " + id
+                ));
+
+        City city = findCity(request.cityId());
+
+        customer.update(
+                request.firstName().trim(),
+                normalizeOptional(request.middleInitial()),
+                request.lastName().trim(),
+                city,
+                normalizeOptional(request.address())
+        );
+
+        return toResponse(customerRepository.saveAndFlush(customer));
+    }
+
+    // DELETE customer
+    @Transactional
+    public void deleteCustomer(Integer id) {
+
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Customer not found with ID: " + id
+                ));
+
+        try {
+            customerRepository.delete(customer);
+            customerRepository.flush();
+
+        } catch (DataIntegrityViolationException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot delete this customer because sales reference it."
+            );
+        }
+    }
+
+    // Find city or return 404
+    private City findCity(Integer cityId) {
+        return cityRepository.findById(cityId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "City not found with ID: " + cityId
+                ));
+    }
+
+    // Validate customer fields
+    private void validateCustomerData(
+            String firstName,
+            String middleInitial,
+            String lastName,
+            String address) {
+
+        if (firstName == null || firstName.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "First name cannot be empty."
+            );
+        }
+
+        if (lastName == null || lastName.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Last name cannot be empty."
+            );
+        }
+
+        if (firstName.trim().length() > 100 ||
+                lastName.trim().length() > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "First name and last name cannot exceed 100 characters."
+            );
+        }
+
+        if (middleInitial != null && middleInitial.length() > 10) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Middle initial cannot exceed 10 characters."
+            );
+        }
+
+        if (address != null && address.length() > 255) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Address cannot exceed 255 characters."
+            );
+        }
+    }
+
+    // Convert blank optional values to null
+    private String normalizeOptional(String value) {
+        return value == null || value.isBlank()
+                ? null
+                : value.trim();
+    }
+
+    // Entity to DTO conversion
+    private CustomerResponse toResponse(Customer customer) {
         return new CustomerResponse(
                 customer.getCustomerId(),
                 customer.getFirstName(),
                 customer.getMiddleInitial(),
                 customer.getLastName(),
-                city.getCityId(),
-                city.getCityName(),
+                customer.getCity().getCityId(),
+                customer.getCity().getCityName(),
                 customer.getAddress()
         );
     }

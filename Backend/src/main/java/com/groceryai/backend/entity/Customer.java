@@ -26,7 +26,25 @@ public class Customer {
     @Column(length = 255)
     private String address;
 
-    protected Customer() {}
+    protected Customer() {
+        // Required by JPA
+    }
+
+    public Customer(
+            Integer customerId,
+            String firstName,
+            String middleInitial,
+            String lastName,
+            City city,
+            String address) {
+
+        this.customerId = customerId;
+        this.firstName = firstName;
+        this.middleInitial = middleInitial;
+        this.lastName = lastName;
+        this.city = city;
+        this.address = address;
+    }
 
     public Integer getCustomerId() {
         return customerId;
@@ -50,5 +68,19 @@ public class Customer {
 
     public String getAddress() {
         return address;
+    }
+
+    public void update(
+            String firstName,
+            String middleInitial,
+            String lastName,
+            City city,
+            String address) {
+
+        this.firstName = firstName;
+        this.middleInitial = middleInitial;
+        this.lastName = lastName;
+        this.city = city;
+        this.address = address;
     }
 }

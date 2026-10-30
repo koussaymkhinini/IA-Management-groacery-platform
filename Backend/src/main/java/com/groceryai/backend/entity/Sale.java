@@ -41,6 +41,21 @@ public class Sale {
 
     protected Sale() {}
 
+    public Sale(Long salesId, Employee salesperson, Customer customer,
+                Product product, Integer quantity, BigDecimal discount,
+                BigDecimal totalPrice, LocalDateTime salesDate,
+                String transactionNumber) {
+        this.salesId = salesId;
+        this.salesperson = salesperson;
+        this.customer = customer;
+        this.product = product;
+        this.quantity = quantity;
+        this.discount = discount;
+        this.totalPrice = totalPrice;
+        this.salesDate = salesDate;
+        this.transactionNumber = transactionNumber;
+    }
+
     public Long getSalesId() {
         return salesId;
     }
@@ -75,5 +90,19 @@ public class Sale {
 
     public String getTransactionNumber() {
         return transactionNumber;
+    }
+
+    public void update(Employee salesperson, Customer customer,
+                       Product product, Integer quantity,
+                       BigDecimal discount, BigDecimal totalPrice,
+                       LocalDateTime salesDate, String transactionNumber) {
+        this.salesperson = salesperson;
+        this.customer = customer;
+        this.product = product;
+        this.quantity = quantity;
+        this.discount = discount;
+        this.totalPrice = totalPrice;
+        this.salesDate = salesDate;
+        this.transactionNumber = transactionNumber;
     }
 }

@@ -1,9 +1,6 @@
 package com.groceryai.backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "categories")
@@ -20,11 +17,20 @@ public class Category {
         // Required by JPA
     }
 
+    public Category(Integer categoryId, String categoryName) {
+        this.categoryId = categoryId;
+        this.categoryName = categoryName;
+    }
+
     public Integer getCategoryId() {
         return categoryId;
     }
 
     public String getCategoryName() {
         return categoryName;
+    }
+
+    public void updateName(String categoryName) {
+        this.categoryName = categoryName;
     }
 }

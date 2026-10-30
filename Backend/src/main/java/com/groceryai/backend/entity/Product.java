@@ -1,4 +1,3 @@
-
 package com.groceryai.backend.entity;
 
 import jakarta.persistence.*;
@@ -42,6 +41,28 @@ public class Product {
         // Required by JPA
     }
 
+    public Product(
+            Integer productId,
+            String productName,
+            BigDecimal price,
+            Category category,
+            String productClass,
+            LocalDateTime modifyDate,
+            String resistant,
+            String isAllergic,
+            BigDecimal vitalityDays) {
+
+        this.productId = productId;
+        this.productName = productName;
+        this.price = price;
+        this.category = category;
+        this.productClass = productClass;
+        this.modifyDate = modifyDate;
+        this.resistant = resistant;
+        this.isAllergic = isAllergic;
+        this.vitalityDays = vitalityDays;
+    }
+
     public Integer getProductId() {
         return productId;
     }
@@ -76,5 +97,25 @@ public class Product {
 
     public BigDecimal getVitalityDays() {
         return vitalityDays;
+    }
+
+    public void update(
+            String productName,
+            BigDecimal price,
+            Category category,
+            String productClass,
+            LocalDateTime modifyDate,
+            String resistant,
+            String isAllergic,
+            BigDecimal vitalityDays) {
+
+        this.productName = productName;
+        this.price = price;
+        this.category = category;
+        this.productClass = productClass;
+        this.modifyDate = modifyDate;
+        this.resistant = resistant;
+        this.isAllergic = isAllergic;
+        this.vitalityDays = vitalityDays;
     }
 }

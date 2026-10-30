@@ -16,7 +16,15 @@ public class Country {
     @Column(name = "country_code", nullable = false, length = 10)
     private String countryCode;
 
-    protected Country() {}
+    protected Country() {
+        // Required by JPA
+    }
+
+    public Country(Integer countryId, String countryName, String countryCode) {
+        this.countryId = countryId;
+        this.countryName = countryName;
+        this.countryCode = countryCode;
+    }
 
     public Integer getCountryId() {
         return countryId;
@@ -28,5 +36,10 @@ public class Country {
 
     public String getCountryCode() {
         return countryCode;
+    }
+
+    public void update(String countryName, String countryCode) {
+        this.countryName = countryName;
+        this.countryCode = countryCode;
     }
 }

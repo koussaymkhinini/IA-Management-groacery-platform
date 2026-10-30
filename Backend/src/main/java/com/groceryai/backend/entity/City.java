@@ -20,7 +20,21 @@ public class City {
     @JoinColumn(name = "country_id", nullable = false)
     private Country country;
 
-    protected City() {}
+    protected City() {
+        // Required by JPA
+    }
+
+    public City(
+            Integer cityId,
+            String cityName,
+            String zipcode,
+            Country country) {
+
+        this.cityId = cityId;
+        this.cityName = cityName;
+        this.zipcode = zipcode;
+        this.country = country;
+    }
 
     public Integer getCityId() {
         return cityId;
@@ -36,5 +50,15 @@ public class City {
 
     public Country getCountry() {
         return country;
+    }
+
+    public void update(
+            String cityName,
+            String zipcode,
+            Country country) {
+
+        this.cityName = cityName;
+        this.zipcode = zipcode;
+        this.country = country;
     }
 }

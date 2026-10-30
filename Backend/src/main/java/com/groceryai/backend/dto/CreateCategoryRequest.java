@@ -1,5 +1,6 @@
 package com.groceryai.backend.dto;
 
-public class CreateCategoryRequest {
-    
-}
+public record CreateCategoryRequest(
+        Integer categoryId,
+        String categoryName
+) {}

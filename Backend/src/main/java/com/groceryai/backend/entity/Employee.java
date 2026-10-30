@@ -35,35 +35,37 @@ public class Employee {
 
     protected Employee() {}
 
-    public Integer getEmployeeId() {
-        return employeeId;
+    public Employee(Integer employeeId, String firstName, String middleInitial,
+                    String lastName, LocalDateTime birthDate, String gender,
+                    City city, LocalDateTime hireDate) {
+        this.employeeId = employeeId;
+        this.firstName = firstName;
+        this.middleInitial = middleInitial;
+        this.lastName = lastName;
+        this.birthDate = birthDate;
+        this.gender = gender;
+        this.city = city;
+        this.hireDate = hireDate;
     }
 
-    public String getFirstName() {
-        return firstName;
-    }
+    public Integer getEmployeeId() { return employeeId; }
+    public String getFirstName() { return firstName; }
+    public String getMiddleInitial() { return middleInitial; }
+    public String getLastName() { return lastName; }
+    public LocalDateTime getBirthDate() { return birthDate; }
+    public String getGender() { return gender; }
+    public City getCity() { return city; }
+    public LocalDateTime getHireDate() { return hireDate; }
 
-    public String getMiddleInitial() {
-        return middleInitial;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public LocalDateTime getBirthDate() {
-        return birthDate;
-    }
-
-    public String getGender() {
-        return gender;
-    }
-
-    public City getCity() {
-        return city;
-    }
-
-    public LocalDateTime getHireDate() {
-        return hireDate;
+    public void update(String firstName, String middleInitial,
+                       String lastName, LocalDateTime birthDate,
+                       String gender, City city, LocalDateTime hireDate) {
+        this.firstName = firstName;
+        this.middleInitial = middleInitial;
+        this.lastName = lastName;
+        this.birthDate = birthDate;
+        this.gender = gender;
+        this.city = city;
+        this.hireDate = hireDate;
     }
 }
