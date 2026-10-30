@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: grocery_ai
       POSTGRES_USER: app_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
+      POSTGRES_PASSWORD: db_pass
     ports:
       - "127.0.0.1:5433:5432"
     volumes:
