@@ -30,6 +30,59 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             """)
     SalesOverviewProjection getSalesOverview();
 
+    @Query("""
+        SELECT
+            e.employeeId AS employeeId,
+            CONCAT(e.firstName, ' ', e.lastName) AS employeeName,
+            COUNT(s) AS totalSales,
+            SUM(s.quantity) AS totalQuantitySold
+        FROM Sale s
+        JOIN s.salesperson e
+        GROUP BY e.employeeId, e.firstName, e.lastName
+        ORDER BY SUM(s.quantity) DESC
+        """)
+    List<EmployeePerformanceProjection> getEmployeePerformance();
+
+    @Query("""
+        SELECT
+            c.customerId AS customerId,
+            CONCAT(c.firstName, ' ', c.lastName) AS customerName,
+            COUNT(s) AS totalPurchases,
+            SUM(s.quantity) AS totalQuantityPurchased
+        FROM Sale s
+        JOIN s.customer c
+        GROUP BY c.customerId, c.firstName, c.lastName
+        ORDER BY COUNT(s) DESC
+        """)
+    List<TopCustomerProjection> getTopCustomers();
+
+    @Query("""
+        SELECT
+            c.categoryId AS categoryId,
+            c.categoryName AS categoryName,
+            SUM(s.quantity) AS totalQuantitySold,
+            COUNT(s) AS totalSales
+        FROM Sale s
+        JOIN s.product p
+        JOIN p.category c
+        GROUP BY c.categoryId, c.categoryName
+        ORDER BY SUM(s.quantity) DESC
+        """)
+    List<SalesByCategoryProjection> getSalesByCategory();
+
+    @Query("""
+        SELECT
+            p.productId AS productId,
+            p.productName AS productName,
+            SUM(s.quantity) AS totalQuantitySold,
+            COUNT(s) AS totalSales
+        FROM Sale s
+        JOIN s.product p
+        GROUP BY p.productId, p.productName
+        ORDER BY SUM(s.quantity) DESC
+        """)
+    List<TopSellingProductProjection> getTopSellingProducts();
+
     @Query(value = """
             SELECT
                 TO_CHAR(DATE_TRUNC('month', sales_date), 'YYYY-MM')
