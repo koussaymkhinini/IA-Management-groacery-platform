@@ -9,7 +9,6 @@ public record UpdateSaleRequest(
         Integer productId,
         Integer quantity,
         BigDecimal discount,
-        BigDecimal totalPrice,
         LocalDateTime salesDate,
         String transactionNumber
 ) {}

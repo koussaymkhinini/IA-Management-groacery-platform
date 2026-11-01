@@ -10,7 +10,6 @@ public record CreateSaleRequest(
         Integer productId,
         Integer quantity,
         BigDecimal discount,
-        BigDecimal totalPrice,
         LocalDateTime salesDate,
         String transactionNumber
 ) {}

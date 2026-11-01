@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -49,8 +50,7 @@ public class SaleService {
     }
 
     public SaleResponse getSaleById(Long id) {
-        Sale sale = findSale(id);
-        return toResponse(sale);
+        return toResponse(findSale(id));
     }
 
     public List<SaleResponse> getSalesByCustomer(Integer customerId) {
@@ -83,7 +83,6 @@ public class SaleService {
                 request.productId(),
                 request.quantity(),
                 request.discount(),
-                request.totalPrice(),
                 request.transactionNumber()
         );
 
@@ -97,14 +96,20 @@ public class SaleService {
         Customer customer = findCustomer(request.customerId());
         Product product = findProduct(request.productId());
 
+        BigDecimal totalPrice = calculateTotalPrice(
+                product,
+                request.quantity(),
+                request.discount()
+        );
+
         Sale sale = new Sale(
                 request.salesId(),
                 employee,
                 customer,
                 product,
                 request.quantity(),
-                request.discount(),
-                request.totalPrice(),
+                normalizeDiscount(request.discount()),
+                totalPrice,
                 request.salesDate(),
                 normalizeOptional(request.transactionNumber())
         );
@@ -121,7 +126,6 @@ public class SaleService {
                 request.productId(),
                 request.quantity(),
                 request.discount(),
-                request.totalPrice(),
                 request.transactionNumber()
         );
 
@@ -131,13 +135,19 @@ public class SaleService {
         Customer customer = findCustomer(request.customerId());
         Product product = findProduct(request.productId());
 
+        BigDecimal totalPrice = calculateTotalPrice(
+                product,
+                request.quantity(),
+                request.discount()
+        );
+
         sale.update(
                 employee,
                 customer,
                 product,
                 request.quantity(),
-                request.discount(),
-                request.totalPrice(),
+                normalizeDiscount(request.discount()),
+                totalPrice,
                 request.salesDate(),
                 normalizeOptional(request.transactionNumber())
         );
@@ -150,6 +160,34 @@ public class SaleService {
         Sale sale = findSale(id);
         saleRepository.delete(sale);
         saleRepository.flush();
+    }
+
+    private BigDecimal calculateTotalPrice(
+            Product product,
+            Integer quantity,
+            BigDecimal discount) {
+
+        BigDecimal productPrice = product.getPrice();
+
+        if (productPrice == null || productPrice.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot create a sale because the product has no valid price.");
+        }
+
+        BigDecimal effectiveDiscount = normalizeDiscount(discount);
+
+        BigDecimal discountedPrice = productPrice.multiply(
+                BigDecimal.ONE.subtract(effectiveDiscount)
+        );
+
+        return discountedPrice
+                .multiply(BigDecimal.valueOf(quantity))
+                .setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal normalizeDiscount(BigDecimal discount) {
+        return discount == null ? BigDecimal.ZERO : discount;
     }
 
     private Sale findSale(Long id) {
@@ -187,12 +225,12 @@ public class SaleService {
             Integer productId,
             Integer quantity,
             BigDecimal discount,
-            BigDecimal totalPrice,
             String transactionNumber) {
 
         if (salesId == null) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Sales ID is required.");
+                    HttpStatus.BAD_REQUEST,
+                    "Sales ID is required.");
         }
 
         if (salespersonId == null || customerId == null || productId == null) {
@@ -207,16 +245,12 @@ public class SaleService {
                     "Quantity must be greater than zero.");
         }
 
-        if (discount != null && discount.compareTo(BigDecimal.ZERO) < 0) {
+        if (discount != null &&
+                (discount.compareTo(BigDecimal.ZERO) < 0 ||
+                 discount.compareTo(BigDecimal.ONE) > 0)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Discount cannot be negative.");
-        }
-
-        if (totalPrice != null && totalPrice.compareTo(BigDecimal.ZERO) < 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Total price cannot be negative.");
+                    "Discount must be between 0 and 1.");
         }
 
         if (transactionNumber != null &&
