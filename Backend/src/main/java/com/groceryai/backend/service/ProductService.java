@@ -7,13 +7,15 @@ import com.groceryai.backend.entity.Category;
 import com.groceryai.backend.entity.Product;
 import com.groceryai.backend.repository.CategoryRepository;
 import com.groceryai.backend.repository.ProductRepository;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import com.groceryai.backend.dto.AgentPageResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.util.List;
 
 @Service
@@ -181,4 +183,47 @@ public class ProductService {
                 product.getVitalityDays()
         );
     }
+    public AgentPageResponse<ProductResponse> getProductsForAgent(
+        int page, int size) {
+
+    Page<ProductResponse> result = productRepository.findAll(
+            PageRequest.of(
+                    Math.max(0, page),
+                    Math.max(1, Math.min(size, 20)),
+                    Sort.by("productId").ascending()
+            )
+    ).map(this::toResponse);
+
+    return new AgentPageResponse<>(
+            result.getContent(),
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasNext()
+    );
+}
+
+public AgentPageResponse<ProductResponse> getProductsByCategoryForAgent(
+        Integer categoryId, int page, int size) {
+
+    Page<ProductResponse> result =
+            productRepository.findByCategory_CategoryId(
+                    categoryId,
+                    PageRequest.of(
+                            Math.max(0, page),
+                            Math.max(1, Math.min(size, 20)),
+                            Sort.by("productId").ascending()
+                    )
+            ).map(this::toResponse);
+
+    return new AgentPageResponse<>(
+            result.getContent(),
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasNext()
+    );
+}
 }

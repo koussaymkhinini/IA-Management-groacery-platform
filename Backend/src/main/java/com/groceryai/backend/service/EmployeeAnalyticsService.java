@@ -3,7 +3,6 @@ package com.groceryai.backend.service;
 import com.groceryai.backend.dto.EmployeePerformanceResponse;
 import com.groceryai.backend.repository.SaleRepository;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 
 @Service

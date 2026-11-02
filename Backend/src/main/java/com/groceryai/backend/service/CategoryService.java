@@ -5,13 +5,15 @@ import com.groceryai.backend.dto.CreateCategoryRequest;
 import com.groceryai.backend.dto.UpdateCategoryRequest;
 import com.groceryai.backend.entity.Category;
 import com.groceryai.backend.repository.CategoryRepository;
-
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import com.groceryai.backend.dto.AgentPageResponse;
 import java.util.List;
 
 @Service
@@ -127,4 +129,24 @@ public class CategoryService {
                 category.getCategoryName()
         );
     }
+    public AgentPageResponse<CategoryResponse> getCategoriesForAgent(
+        int page, int size) {
+
+    Page<CategoryResponse> result = categoryRepository.findAll(
+            PageRequest.of(
+                    Math.max(0, page),
+                    Math.max(1, Math.min(size, 20)),
+                    Sort.by("categoryId").ascending()
+            )
+    ).map(this::toResponse);
+
+    return new AgentPageResponse<>(
+            result.getContent(),
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasNext()
+    );
+}
 }

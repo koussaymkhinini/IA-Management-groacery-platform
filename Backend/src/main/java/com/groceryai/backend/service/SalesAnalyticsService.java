@@ -10,7 +10,6 @@ import com.groceryai.backend.repository.SalesOverviewProjection;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.groceryai.backend.dto.TopSellingProductResponse;
-
 import java.math.BigDecimal;
 import java.util.List;
 

@@ -1,5 +1,6 @@
 package com.groceryai.backend.service;
 
+import com.groceryai.backend.dto.AgentPageResponse;
 import com.groceryai.backend.dto.CityResponse;
 import com.groceryai.backend.dto.CreateCityRequest;
 import com.groceryai.backend.dto.UpdateCityRequest;
@@ -7,13 +8,14 @@ import com.groceryai.backend.entity.City;
 import com.groceryai.backend.entity.Country;
 import com.groceryai.backend.repository.CityRepository;
 import com.groceryai.backend.repository.CountryRepository;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.util.List;
 
 @Service
@@ -209,4 +211,47 @@ public class CityService {
                 city.getCountry().getCountryCode()
         );
     }
+    public AgentPageResponse<CityResponse> getCitiesForAgent(
+        int page, int size) {
+
+    Page<CityResponse> result = cityRepository.findAll(
+            PageRequest.of(
+                    Math.max(0, page),
+                    Math.max(1, Math.min(size, 20)),
+                    Sort.by("cityId").ascending()
+            )
+    ).map(this::toResponse);
+
+    return new AgentPageResponse<>(
+            result.getContent(),
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasNext()
+    );
+}
+
+public AgentPageResponse<CityResponse> getCitiesByCountryForAgent(
+        Integer countryId, int page, int size) {
+
+    Page<CityResponse> result =
+            cityRepository.findByCountry_CountryId(
+                    countryId,
+                    PageRequest.of(
+                            Math.max(0, page),
+                            Math.max(1, Math.min(size, 20)),
+                            Sort.by("cityId").ascending()
+                    )
+            ).map(this::toResponse);
+
+    return new AgentPageResponse<>(
+            result.getContent(),
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasNext()
+    );
+}
 }

@@ -3,6 +3,9 @@ package com.groceryai.backend.repository;
 import com.groceryai.backend.entity.Sale;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import java.util.Optional;
 
 import java.util.List;
 
@@ -13,6 +16,21 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     List<Sale> findBySalesperson_EmployeeId(Integer employeeId);
 
     List<Sale> findByProduct_ProductId(Integer productId);
+
+    Page<Sale> findByCustomer_CustomerId(
+        Integer customerId,
+        Pageable pageable
+    );
+
+    Page<Sale> findBySalesperson_EmployeeId(
+            Integer employeeId,
+            Pageable pageable
+    );
+
+    Page<Sale> findByProduct_ProductId(
+            Integer productId,
+            Pageable pageable
+    );
 
     @Query("""
             SELECT
@@ -101,4 +119,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             ORDER BY DATE_TRUNC('month', sales_date)
             """, nativeQuery = true)
     List<SalesRevenueOverTimeProjection> getRevenueOverTime();
+    @Query(value = """
+            SELECT *
+            FROM sales
+            ORDER BY sales_date DESC NULLS LAST, sales_id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<Sale> findLatestSale();
 }

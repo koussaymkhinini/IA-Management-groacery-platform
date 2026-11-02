@@ -1,5 +1,6 @@
 package com.groceryai.backend.service;
 
+import com.groceryai.backend.dto.AgentPageResponse;
 import com.groceryai.backend.dto.CreateEmployeeRequest;
 import com.groceryai.backend.dto.EmployeeResponse;
 import com.groceryai.backend.dto.UpdateEmployeeRequest;
@@ -7,13 +8,14 @@ import com.groceryai.backend.entity.City;
 import com.groceryai.backend.entity.Employee;
 import com.groceryai.backend.repository.CityRepository;
 import com.groceryai.backend.repository.EmployeeRepository;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.util.List;
 
 @Service
@@ -206,4 +208,47 @@ public class EmployeeService {
                 employee.getHireDate()
         );
     }
+    public AgentPageResponse<EmployeeResponse> getEmployeesForAgent(
+        int page, int size) {
+
+    Page<EmployeeResponse> result = employeeRepository.findAll(
+            PageRequest.of(
+                    Math.max(0, page),
+                    Math.max(1, Math.min(size, 20)),
+                    Sort.by("employeeId").ascending()
+            )
+    ).map(this::toResponse);
+
+    return new AgentPageResponse<>(
+            result.getContent(),
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasNext()
+    );
+}
+
+public AgentPageResponse<EmployeeResponse> getEmployeesByCityForAgent(
+        Integer cityId, int page, int size) {
+
+    Page<EmployeeResponse> result =
+            employeeRepository.findByCity_CityId(
+                    cityId,
+                    PageRequest.of(
+                            Math.max(0, page),
+                            Math.max(1, Math.min(size, 20)),
+                            Sort.by("employeeId").ascending()
+                    )
+            ).map(this::toResponse);
+
+    return new AgentPageResponse<>(
+            result.getContent(),
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasNext()
+    );
+}
 }

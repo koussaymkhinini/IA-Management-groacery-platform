@@ -1,5 +1,6 @@
 package com.groceryai.backend.service;
 
+import com.groceryai.backend.dto.AgentPageResponse;
 import com.groceryai.backend.dto.CreateSaleRequest;
 import com.groceryai.backend.dto.SaleResponse;
 import com.groceryai.backend.dto.UpdateSaleRequest;
@@ -11,12 +12,13 @@ import com.groceryai.backend.repository.CustomerRepository;
 import com.groceryai.backend.repository.EmployeeRepository;
 import com.groceryai.backend.repository.ProductRepository;
 import com.groceryai.backend.repository.SaleRepository;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -289,4 +291,96 @@ public class SaleService {
                 sale.getTransactionNumber()
         );
     }
+    public AgentPageResponse<SaleResponse> getSalesForAgent(
+        int page, int size) {
+
+    Page<SaleResponse> result = saleRepository.findAll(
+            PageRequest.of(
+                    Math.max(0, page),
+                    Math.max(1, Math.min(size, 20)),
+                    Sort.by("salesId").ascending()
+            )
+    ).map(this::toResponse);
+
+    return new AgentPageResponse<>(
+            result.getContent(),
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasNext()
+    );
+}
+
+public AgentPageResponse<SaleResponse> getSalesByCustomerForAgent(
+        Integer customerId, int page, int size) {
+
+    Page<SaleResponse> result =
+            saleRepository.findByCustomer_CustomerId(
+                    customerId,
+                    PageRequest.of(
+                            Math.max(0, page),
+                            Math.max(1, Math.min(size, 20)),
+                            Sort.by("salesId").ascending()
+                    )
+            ).map(this::toResponse);
+
+    return toAgentPage(result);
+}
+
+public AgentPageResponse<SaleResponse> getSalesByEmployeeForAgent(
+        Integer employeeId, int page, int size) {
+
+    Page<SaleResponse> result =
+            saleRepository.findBySalesperson_EmployeeId(
+                    employeeId,
+                    PageRequest.of(
+                            Math.max(0, page),
+                            Math.max(1, Math.min(size, 20)),
+                            Sort.by("salesId").ascending()
+                    )
+            ).map(this::toResponse);
+
+    return toAgentPage(result);
+}
+
+public AgentPageResponse<SaleResponse> getSalesByProductForAgent(
+        Integer productId, int page, int size) {
+
+    Page<SaleResponse> result =
+            saleRepository.findByProduct_ProductId(
+                    productId,
+                    PageRequest.of(
+                            Math.max(0, page),
+                            Math.max(1, Math.min(size, 20)),
+                            Sort.by("salesId").ascending()
+                    )
+            ).map(this::toResponse);
+
+    return toAgentPage(result);
+}
+
+private AgentPageResponse<SaleResponse> toAgentPage(
+        Page<SaleResponse> result) {
+
+        return new AgentPageResponse<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.hasNext()
+        );
+        }
+        public SaleResponse getLatestSale() {
+
+        Sale sale = saleRepository.findLatestSale()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "No sales records found."
+                ));
+
+        return toResponse(sale);
+        }
+
 }
