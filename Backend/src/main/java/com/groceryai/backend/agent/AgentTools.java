@@ -1,4 +1,8 @@
+
 package com.groceryai.backend.agent;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.groceryai.backend.dto.*;
 import com.groceryai.backend.service.EmployeeAnalyticsService;
@@ -12,6 +16,8 @@ import java.util.List;
 
 @Service
 public class AgentTools {
+
+    private static final Logger log = LoggerFactory.getLogger(AgentTools.class);
 
     private final SalesAnalyticsService salesAnalyticsService;
     private final EmployeeAnalyticsService employeeAnalyticsService;
@@ -33,6 +39,8 @@ public class AgentTools {
             """)
     public SalesOverviewResponse getSalesOverview() {
 
+        log.info("AI TOOL CALLED: getSalesOverview");
+
         return salesAnalyticsService.getSalesOverview();
     }
 
@@ -43,6 +51,8 @@ public class AgentTools {
             Use this when the user asks about monthly trends or sales evolution.
             """)
     public List<SalesRevenueOverTimeResponse> getRevenueOverTime() {
+
+        log.info("AI TOOL CALLED: getRevenueOverTime");
 
         return salesAnalyticsService.getRevenueOverTime();
     }
@@ -55,6 +65,8 @@ public class AgentTools {
     public List<TopSellingProductResponse> getTopSellingProducts(
             @ToolParam(description = "Number of products to return, between 1 and 20")
             Integer limit) {
+
+        log.info("AI TOOL CALLED: getTopSellingProducts | requestedLimit={}", limit);
 
         return applyLimit(
                 salesAnalyticsService.getTopSellingProducts(),
@@ -70,6 +82,8 @@ public class AgentTools {
             """)
     public List<SalesByCategoryResponse> getSalesByCategory() {
 
+        log.info("AI TOOL CALLED: getSalesByCategory");
+
         return salesAnalyticsService.getSalesByCategory();
     }
 
@@ -83,6 +97,8 @@ public class AgentTools {
     public List<TopCustomerResponse> getTopCustomers(
             @ToolParam(description = "Number of customers to return, between 1 and 20")
             Integer limit) {
+
+        log.info("AI TOOL CALLED: getTopCustomers | requestedLimit={}", limit);
 
         return applyLimit(
                 salesAnalyticsService.getTopCustomers(),
@@ -100,6 +116,8 @@ public class AgentTools {
     public List<EmployeePerformanceResponse> getEmployeePerformance(
             @ToolParam(description = "Number of employees to return, between 1 and 20")
             Integer limit) {
+
+        log.info("AI TOOL CALLED: getEmployeePerformance | requestedLimit={}", limit);
 
         return applyLimit(
                 employeeAnalyticsService.getEmployeePerformance(),
