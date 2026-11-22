@@ -2,7 +2,15 @@ package com.groceryai.backend.agent;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
+import com.groceryai.backend.entity.ChatMessage;
 
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.AssistantMessage;
+
+import java.util.ArrayList;
+import java.util.List;
 @Service
 public class AgentService {
 
@@ -140,19 +148,44 @@ public class AgentService {
         this.queryEngineTool = queryEngineTool;
     }
 
-    public String ask(String message) {
+    
+public String ask(String message) {
+    return ask(message, List.of());
+}
 
-        String answer = chatClient.prompt()
-                .system(SYSTEM_PROMPT)
-                .user(message)
-                .tools(agentTools, agentCrudTools, queryEngineTool)
-                .call()
-                .content();
+public String ask(String message, List<ChatMessage> history) {
 
-        if (answer == null || answer.isBlank()) {
-            return "I couldn't generate an answer. Please try again.";
+    List<Message> messages = new ArrayList<>();
+
+    // 1. Add the system instructions first.
+    messages.add(new SystemMessage(SYSTEM_PROMPT));
+
+    // 2. Reconstruct the previous conversation.
+    for (ChatMessage chatMessage : history) {
+
+        if (chatMessage.getRole() == ChatMessage.Role.USER) {
+            messages.add(new UserMessage(chatMessage.getContent()));
+        } else {
+            messages.add(new AssistantMessage(chatMessage.getContent()));
         }
-
-        return answer;
     }
+
+    // 3. Add the current user message.
+    messages.add(new UserMessage(message));
+
+    // 4. Send the complete conversation to Gemini,
+    //    while keeping all existing agent tools available.
+    String answer = chatClient.prompt()
+            .messages(messages)
+            .tools(agentTools, agentCrudTools, queryEngineTool)
+            .call()
+            .content();
+
+    if (answer == null || answer.isBlank()) {
+        return "I couldn't generate an answer. Please try again.";
+    }
+
+    return answer;
+}
+
 }

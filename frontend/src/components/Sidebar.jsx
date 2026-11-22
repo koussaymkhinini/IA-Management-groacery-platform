@@ -5,13 +5,22 @@ import {
     Plus,
     BarChart3,
     PanelLeftClose,
-    PanelLeftOpen
+    PanelLeftOpen,
 } from "lucide-react";
 
-function Sidebar({ onNewChat, collapsed, onToggle }) {
+function Sidebar({
+    onNewChat,
+    collapsed,
+    onToggle,
+    conversations = [],
+    activeConversationId,
+    onSelectConversation,
+}) {
     return (
         <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
             <div className="sidebar-top">
+
+                {/* Brand */}
                 <div className="brand">
                     <div className="brand-icon">
                         <Bot size={23} />
@@ -37,6 +46,7 @@ function Sidebar({ onNewChat, collapsed, onToggle }) {
                     </button>
                 </div>
 
+                {/* New conversation */}
                 <button
                     className="new-chat-button"
                     onClick={onNewChat}
@@ -46,23 +56,18 @@ function Sidebar({ onNewChat, collapsed, onToggle }) {
                     {!collapsed && <span>New conversation</span>}
                 </button>
 
+                {/* Workspace */}
                 <div className="sidebar-section">
                     {!collapsed && (
                         <span className="sidebar-label">WORKSPACE</span>
                     )}
 
-                    <div
-                        className="sidebar-item active"
-                        title="AI Assistant"
-                    >
+                    <div className="sidebar-item active" title="AI Assistant">
                         <MessageSquare size={17} />
                         {!collapsed && <span>AI Assistant</span>}
                     </div>
 
-                    <div
-                        className="sidebar-item"
-                        title="Analytics"
-                    >
+                    <div className="sidebar-item" title="Analytics">
                         <BarChart3 size={17} />
                         {!collapsed && (
                             <>
@@ -72,6 +77,39 @@ function Sidebar({ onNewChat, collapsed, onToggle }) {
                         )}
                     </div>
                 </div>
+
+                {/* Conversation history */}
+                {!collapsed && (
+                    <div className="sidebar-section conversation-history">
+                        <span className="sidebar-label">RECENT CHATS</span>
+
+                        <div className="conversation-list">
+                            {conversations.length === 0 ? (
+                                <p className="empty-history">
+                                    No conversations yet
+                                </p>
+                            ) : (
+                                conversations.map(conversation => (
+                                    <button
+                                        key={conversation.id}
+                                        className={`conversation-item ${
+                                            activeConversationId === conversation.id
+                                                ? "active"
+                                                : ""
+                                        }`}
+                                        onClick={() =>
+                                            onSelectConversation(conversation.id)
+                                        }
+                                        title={conversation.title}
+                                    >
+                                        <MessageSquare size={15} />
+                                        <span>{conversation.title}</span>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </aside>
     );
