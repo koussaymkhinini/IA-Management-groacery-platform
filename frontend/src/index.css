@@ -785,3 +785,173 @@ button:disabled {
         height: 7px;
     }
 }
+
+
+/* ========================================
+   FIXED APP LAYOUT
+======================================== */
+
+html,
+body,
+#root {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+
+body {
+    overflow: hidden;
+}
+
+.app {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ========================================
+   SIDEBAR
+======================================== */
+
+.sidebar {
+    position: relative;
+    flex: 0 0 260px;
+    width: 260px;
+    min-width: 260px;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    transition:
+        width 0.25s ease,
+        min-width 0.25s ease,
+        flex-basis 0.25s ease,
+        padding 0.25s ease;
+}
+
+.sidebar.collapsed {
+    flex-basis: 76px;
+    width: 76px;
+    min-width: 76px;
+    padding: 24px 10px 16px;
+}
+
+.sidebar.collapsed .brand {
+    flex-direction: column;
+    gap: 12px;
+    padding: 0;
+    margin-bottom: 30px;
+}
+
+.sidebar.collapsed .sidebar-collapse {
+    margin: 0;
+}
+
+.sidebar-collapse {
+    flex-shrink: 0;
+}
+
+.sidebar.collapsed .new-chat-button {
+    justify-content: center;
+    padding: 12px 0;
+    gap: 0;
+}
+
+.sidebar.collapsed .sidebar-section {
+    margin-top: 30px;
+}
+
+.sidebar.collapsed .sidebar-item {
+    justify-content: center;
+    padding: 12px 0;
+    gap: 0;
+}
+
+.sidebar.collapsed .sidebar-top {
+    width: 100%;
+}
+
+.sidebar,
+.sidebar * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+/* ========================================
+   MAIN CHAT
+======================================== */
+
+.chat-main {
+    flex: 1;
+    width: 0;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Only this area scrolls */
+.chat-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+/* Keep the input and footer in place */
+.input-wrapper {
+    flex-shrink: 0;
+}
+
+.chat-footer {
+    flex-shrink: 0;
+}
+
+/* ========================================
+   SMOOTH SIDEBAR TRANSITION
+======================================== */
+
+.sidebar .brand-info,
+.sidebar .new-chat-button span,
+.sidebar .sidebar-label,
+.sidebar .sidebar-item span {
+    white-space: nowrap;
+}
+
+.sidebar .sidebar-item {
+    cursor: pointer;
+}
+
+/* ========================================
+   RESPONSIVE
+======================================== */
+
+@media (max-width: 900px) {
+    .sidebar:not(.collapsed) {
+        flex-basis: 220px;
+        width: 220px;
+        min-width: 220px;
+    }
+
+    .sidebar.collapsed {
+        flex-basis: 76px;
+        width: 76px;
+        min-width: 76px;
+    }
+}
+
+@media (max-width: 650px) {
+    .sidebar {
+        display: none;
+    }
+
+    .chat-main {
+        width: 100%;
+    }
+}

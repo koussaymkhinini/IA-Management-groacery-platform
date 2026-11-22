@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
@@ -7,6 +8,7 @@ function App() {
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     async function handleSend(text = message) {
         const userMessage = text.trim();
@@ -53,9 +55,17 @@ function App() {
         setMessage("");
     }
 
+    function toggleSidebar() {
+        setSidebarCollapsed((previous) => !previous);
+    }
+
     return (
         <div className="app">
-            <Sidebar onNewChat={handleNewChat} />
+            <Sidebar
+                onNewChat={handleNewChat}
+                collapsed={sidebarCollapsed}
+                onToggle={toggleSidebar}
+            />
 
             <ChatWindow
                 messages={messages}

@@ -29,14 +29,6 @@ function ChatInput({ message, setMessage, onSend, loading }) {
                 />
 
                 <div className="input-actions">
-                    <button
-                        type="button"
-                        className="icon-button attachment-button"
-                        title="Attachments coming soon"
-                        disabled
-                    >
-                        <Paperclip size={18} />
-                    </button>
 
                     <button
                         type="submit"

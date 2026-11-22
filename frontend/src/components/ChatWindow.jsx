@@ -1,3 +1,4 @@
+
 import { Sparkles, TrendingUp, Package, Users } from "lucide-react";
 import Message from "./Message";
 import ChatInput from "./ChatInput";
@@ -34,20 +35,6 @@ function ChatWindow({
 
     return (
         <main className="chat-main">
-            <header className="chat-header">
-                <div>
-                    <div className="header-title">AI Assistant</div>
-                    <div className="header-subtitle">
-                        Your grocery business intelligence assistant
-                    </div>
-                </div>
-
-                <div className="connection-status">
-                    <span className="status-dot" />
-                    AI connected
-                </div>
-            </header>
-
             <div className="chat-content">
                 {!hasMessages ? (
                     <div className="welcome-screen">
