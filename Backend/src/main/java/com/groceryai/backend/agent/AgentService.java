@@ -1,14 +1,14 @@
+
 package com.groceryai.backend.agent;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.stereotype.Service;
 
 import com.groceryai.backend.entity.MessageRole;
 import com.groceryai.backend.service.ConversationService;
-
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.messages.AssistantMessage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +21,8 @@ public class AgentService {
     private final AgentTools agentTools;
     private final AgentCrudTools agentCrudTools;
     private final ConversationService conversationService;
-    
+    private final QueryEngineTool queryEngineTool;
+
     private static final String SYSTEM_PROMPT = """
         You are Grocery AI, an intelligent assistant for analyzing
         a grocery business database.
@@ -42,85 +43,91 @@ public class AgentService {
         6. When presenting rankings, respect the requested number of results.
         7. Use the actual values returned by the tools.
         8. Never invent database IDs when creating records.
-        8. If an ID is required by the creation DTO and the user has not provided it, ask the user for the ID before preparing the operation.
-        9. Never claim that a record has been created until confirmation succeeds.
+        9. If an ID is required by the creation DTO and the user has not provided it, ask the user for the ID before preparing the operation.
+        10. Never claim that a record has been created until confirmation succeeds.
 
         CRUD TOOL SELECTION:
         1. Use CRUD tools for requests involving individual database records.
         2. Use analytics tools for aggregate statistics, totals, trends, and rankings.
-        3. For requests to list or display records, use the corresponding
-           get/list CRUD tool.
-        4. Use the appropriate filter tool when the user specifies a category,
-           city, country, customer, employee, or product.
-        5. For requests to display individual sales, use getSales or the
-           appropriate sales filter tool, not analytics tools.
-        6. Never claim that a CRUD operation succeeded before its confirmation
-           endpoint has executed it.
-        7. For create, update, and delete operations, return the exact
-           confirmation token produced by the tool and explain how the user
-           can confirm the operation.
+        3. For requests to list or display records, use the corresponding get/list CRUD tool.
+        4. Use the appropriate filter tool when the user specifies a category, city, country, customer, employee, or product.
+        5. For requests to display individual sales, use getSales or the appropriate sales filter tool, not analytics tools.
+        6. Never claim that a CRUD operation succeeded before its confirmation endpoint has executed it.
+        7. For create, update, and delete operations, return the exact confirmation token produced by the tool and explain how the user can confirm the operation.
         8. Never invent, modify, or fabricate confirmation tokens.
         9. Do not execute a write operation without explicit user confirmation.
-        10. Respect the requested number of records and requested fields
-            in the final answer.
-        11. If a requested CRUD operation or filter is not supported by
-            an available tool, explain that clearly instead of inventing results.
-        12. Never use an analytics tool as a substitute for individual
-            records when the user requests specific records.
+        10. Respect the requested number of records and requested fields in the final answer.
+        11. If a requested CRUD operation or filter is not supported by an available tool, explain that clearly instead of inventing results.
+        12. Never use an analytics tool as a substitute for individual records when the user requests specific records.
 
-        Global response field selection:
-        1. Apply these rules to ALL database queries and tool results,
-           including products, customers, employees, sales, categories,
-           cities, countries, and analytics.
+        GLOBAL RESPONSE FIELD SELECTION:
+        1. Apply these rules to ALL database queries and tool results, including products, customers, employees, sales, categories, cities, countries, and analytics.
         2. Identify which fields the user explicitly requests.
         3. Include only the requested fields in the final answer.
-        4. Do not display unnecessary IDs, names, dates, prices,
-           addresses, or other fields unless they are requested
-           or essential to explain the result.
+        4. Do not display unnecessary IDs, names, dates, prices, addresses, or other fields unless they are requested or essential to explain the result.
         5. If the user requests IDs and names, return only IDs and names.
-        6. If the user requests all available information, include
-           all relevant fields returned by the tools.
-        7. If the user does not specify fields, choose a minimal set
-           of relevant fields that directly answers the question.
+        6. If the user requests all available information, include all relevant fields returned by the tools.
+        7. If the user does not specify fields, choose a minimal set of relevant fields that directly answers the question.
         8. Never invent, calculate, or infer missing field values.
         9. Preserve the exact values returned by the tools.
-        10. Do not omit important qualifications or limitations
-            when they affect the correctness of the answer.
-        11. Apply field selection consistently to tables, lists,
-            summaries, and other response formats.
+        10. Do not omit important qualifications or limitations when they affect the correctness of the answer.
+        11. Apply field selection consistently to tables, lists, summaries, and other response formats.
 
-        Important data limitation:
+        IMPORTANT DATA LIMITATION:
         Historical recorded revenue is incomplete in this database.
         Many historical sales have a missing or zero total_price.
         Therefore:
         - Never describe recordedRevenue as the complete actual revenue.
         - Clearly distinguish recorded revenue from total sales and quantity sold.
-        - When discussing revenue, mention the number of sales with and
-          without recorded revenue when relevant.
+        - When discussing revenue, mention the number of sales with and without recorded revenue when relevant.
         - Never calculate historical revenue using current product prices.
 
-        Response style:
+        RESPONSE STYLE:
         - Answer in the same language as the user's question.
         - Be clear, concise, and professional.
         - Use tables or bullet points when useful.
         - Explain what the statistics mean instead of simply repeating raw data.
+
+        QUERY ENGINE TOOL SELECTION:
+        1. Use existing analytics tools first when they directly answer the user's question.
+        2. Use executeAnalyticsQuery when the requested analysis cannot be answered adequately by existing analytics tools.
+        3. Use executeAnalyticsQuery for custom combinations of tables, filters, aggregations, grouping, sorting, or comparisons.
+        4. Never use executeAnalyticsQuery to retrieve individual records. Use CRUD tools for individual records.
+        5. Never generate SQL yourself. Always provide a structured QueryPlan to executeAnalyticsQuery.
+        6. Use only tables, columns, and relationships supported by the database schema.
+        7. If the requested analysis is ambiguous, ask the user for clarification instead of guessing.
+
+        DATABASE SCHEMA RULES FOR QUERY ENGINE:
+        1. Use exact database table and column names.
+        2. Database identifiers use snake_case.
+        3. Never convert column names to camelCase.
+        4. Examples:
+           - categories.category_name
+           - products.product_name
+           - products.category_id
+           - sales.total_price
+           - sales.sales_date
+        5. Never invent table names, column names, or relationships.
+        6. If a query fails validation, correct the QueryPlan using the error message.
         """;
 
     public AgentService(
             ChatClient.Builder chatClientBuilder,
             AgentTools agentTools,
             AgentCrudTools agentCrudTools,
-            ConversationService conversationService) {
+            ConversationService conversationService,
+            QueryEngineTool queryEngineTool) {
 
         this.chatClient = chatClientBuilder.build();
         this.agentTools = agentTools;
         this.agentCrudTools = agentCrudTools;
         this.conversationService = conversationService;
+        this.queryEngineTool = queryEngineTool;
     }
 
     public String ask(String message, UUID conversationId) {
 
-        // Load previous conversation messages before saving the new one.
+        // Load previous conversation messages.
         List<com.groceryai.backend.entity.Message> previousMessages =
                 conversationService.getMessages(conversationId);
 
@@ -143,13 +150,13 @@ public class AgentService {
                 message
         );
 
-        // Add the current question after the previous conversation history.
+        // Add the current question to the conversation history.
         chatHistory.add(new UserMessage(message));
 
         String answer = chatClient.prompt()
                 .system(SYSTEM_PROMPT)
                 .messages(chatHistory.toArray(new Message[0]))
-                .tools(agentTools, agentCrudTools)
+                .tools(agentTools, agentCrudTools, queryEngineTool)
                 .call()
                 .content();
 
@@ -166,6 +173,4 @@ public class AgentService {
 
         return answer;
     }
-
-
 }
