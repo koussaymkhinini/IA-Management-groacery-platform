@@ -7,13 +7,18 @@ import com.groceryai.backend.entity.Message;
 import com.groceryai.backend.service.ConversationService;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import jakarta.validation.Valid;
+import com.groceryai.backend.dto.RenameConversationRequest;
 
 import java.util.List;
 import java.util.UUID;
 
+
+
 @CrossOrigin(origins = "http://localhost:5173")
 @RestController
-@RequestMapping("/api/v1/conversations")
+@RequestMapping("/api/conversations")
 public class ConversationsController {
 
     private final ConversationService conversationService;
@@ -69,5 +74,16 @@ public class ConversationsController {
                 message.getContent(),
                 message.getCreatedAt()
         );
+    }
+
+    @PutMapping("/{id}")
+    public ConversationResponse renameConversation(
+            @PathVariable UUID id,
+            @Valid @RequestBody RenameConversationRequest request) {
+
+        Conversation conversation =
+                conversationService.renameConversation(id, request.title());
+
+        return toConversationResponse(conversation);
     }
 }

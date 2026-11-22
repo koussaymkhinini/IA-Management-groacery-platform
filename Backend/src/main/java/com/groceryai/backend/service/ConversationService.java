@@ -31,6 +31,7 @@ public class ConversationService {
         );
     }
 
+
     @Transactional
     public Message saveMessage(
             UUID conversationId,
@@ -42,12 +43,26 @@ public class ConversationService {
                 .orElseThrow(() ->
                         new IllegalArgumentException("Conversation not found"));
 
-        Message message = new Message(conversation, role, content);
+        // Generate the conversation title from the first user message.
+        if (role == MessageRole.USER &&
+                "New conversation".equals(conversation.getTitle())) {
 
-        conversation.touch();
+            String title = content.trim();
+
+            if (title.length() > 50) {
+                title = title.substring(0, 47) + "...";
+            }
+
+            conversation.updateTitle(title);
+        } else {
+            conversation.touch();
+        }
+
+        Message message = new Message(conversation, role, content);
 
         return messageRepository.save(message);
     }
+
 
     @Transactional(readOnly = true)
     public List<Conversation> getAllConversations() {
@@ -73,5 +88,18 @@ public class ConversationService {
         }
 
         conversationRepository.deleteById(conversationId);
+    }
+
+    @Transactional
+    public Conversation renameConversation(UUID conversationId, String title) {
+
+        Conversation conversation = conversationRepository
+                .findById(conversationId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Conversation not found"));
+
+        conversation.updateTitle(title.trim());
+
+        return conversationRepository.save(conversation);
     }
 }
