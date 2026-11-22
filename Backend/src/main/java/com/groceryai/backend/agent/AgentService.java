@@ -3,13 +3,24 @@ package com.groceryai.backend.agent;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
+import com.groceryai.backend.entity.MessageRole;
+import com.groceryai.backend.service.ConversationService;
+
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.AssistantMessage;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
 @Service
 public class AgentService {
 
     private final ChatClient chatClient;
     private final AgentTools agentTools;
     private final AgentCrudTools agentCrudTools;
-
+    private final ConversationService conversationService;
     
     private static final String SYSTEM_PROMPT = """
         You are Grocery AI, an intelligent assistant for analyzing
@@ -96,27 +107,62 @@ public class AgentService {
         """;
 
     public AgentService(
-        ChatClient.Builder chatClientBuilder,
-        AgentTools agentTools,
-        AgentCrudTools agentCrudTools) {
+            ChatClient.Builder chatClientBuilder,
+            AgentTools agentTools,
+            AgentCrudTools agentCrudTools,
+            ConversationService conversationService) {
 
         this.chatClient = chatClientBuilder.build();
         this.agentTools = agentTools;
         this.agentCrudTools = agentCrudTools;
+        this.conversationService = conversationService;
     }
 
-    public String ask(String message) {
+    public String ask(String message, UUID conversationId) {
+
+        // Load previous conversation messages before saving the new one.
+        List<com.groceryai.backend.entity.Message> previousMessages =
+                conversationService.getMessages(conversationId);
+
+        // Convert database messages into Spring AI messages.
+        List<Message> chatHistory = new ArrayList<>();
+
+        for (com.groceryai.backend.entity.Message previous : previousMessages) {
+
+            if (previous.getRole() == MessageRole.USER) {
+                chatHistory.add(new UserMessage(previous.getContent()));
+            } else {
+                chatHistory.add(new AssistantMessage(previous.getContent()));
+            }
+        }
+
+        // Save the new user message.
+        conversationService.saveMessage(
+                conversationId,
+                MessageRole.USER,
+                message
+        );
+
+        // Add the current question after the previous conversation history.
+        chatHistory.add(new UserMessage(message));
 
         String answer = chatClient.prompt()
                 .system(SYSTEM_PROMPT)
-                .user(message)
+                .messages(chatHistory.toArray(new Message[0]))
                 .tools(agentTools, agentCrudTools)
                 .call()
                 .content();
 
         if (answer == null || answer.isBlank()) {
-            return "I couldn't generate an answer. Please try again.";
+            answer = "I couldn't generate an answer. Please try again.";
         }
+
+        // Save the assistant response.
+        conversationService.saveMessage(
+                conversationId,
+                MessageRole.ASSISTANT,
+                answer
+        );
 
         return answer;
     }
