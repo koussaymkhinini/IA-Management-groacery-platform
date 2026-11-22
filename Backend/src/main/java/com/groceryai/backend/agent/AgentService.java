@@ -6,10 +6,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class AgentService {
 
+
     private final ChatClient chatClient;
     private final AgentTools agentTools;
     private final AgentCrudTools agentCrudTools;
-
+    private final QueryEngineTool queryEngineTool;
     
     private static final String SYSTEM_PROMPT = """
         You are Grocery AI, an intelligent assistant for analyzing
@@ -93,16 +94,50 @@ public class AgentService {
         - Be clear, concise, and professional.
         - Use tables or bullet points when useful.
         - Explain what the statistics mean instead of simply repeating raw data.
+        
+            QUERY ENGINE TOOL SELECTION:
+            
+            1. Use existing analytics tools first when they directly answer
+               the user's question.
+            2. Use executeAnalyticsQuery when the requested analysis cannot
+               be answered adequately by existing analytics tools.
+            3. Use executeAnalyticsQuery for custom combinations of tables,
+               filters, aggregations, grouping, sorting, or comparisons.
+            4. Never use executeAnalyticsQuery to retrieve individual records.
+               Use CRUD tools for individual records.
+            5. Never generate SQL yourself. Always provide a structured
+               QueryPlan to executeAnalyticsQuery.
+            6. Use only tables, columns, and relationships supported by
+               the database schema.
+            7. If the requested analysis is ambiguous, ask the user for
+               clarification instead of guessing.
+               
+            DATABASE SCHEMA RULES FOR QUERY ENGINE:
+            
+                1. Use exact database table and column names.
+                2. Database identifiers use snake_case.
+                3. Never convert column names to camelCase.
+                4. Examples:
+                   - categories.category_name
+                   - products.product_name
+                   - products.category_id
+                   - sales.total_price
+                   - sales.sales_date
+                5. Never invent table names, column names, or relationships.
+                6. If a query fails validation, correct the QueryPlan using the error message.
         """;
 
     public AgentService(
         ChatClient.Builder chatClientBuilder,
         AgentTools agentTools,
-        AgentCrudTools agentCrudTools) {
+        AgentCrudTools agentCrudTools,
+        QueryEngineTool queryEngineTool) {
+
 
         this.chatClient = chatClientBuilder.build();
         this.agentTools = agentTools;
         this.agentCrudTools = agentCrudTools;
+        this.queryEngineTool = queryEngineTool;
     }
 
     public String ask(String message) {
@@ -110,7 +145,7 @@ public class AgentService {
         String answer = chatClient.prompt()
                 .system(SYSTEM_PROMPT)
                 .user(message)
-                .tools(agentTools, agentCrudTools)
+                .tools(agentTools, agentCrudTools, queryEngineTool)
                 .call()
                 .content();
 
