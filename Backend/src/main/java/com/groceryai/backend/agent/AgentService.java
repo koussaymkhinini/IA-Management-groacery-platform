@@ -10,6 +10,14 @@ import org.springframework.stereotype.Service;
 import com.groceryai.backend.entity.MessageRole;
 import com.groceryai.backend.service.ConversationService;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.groceryai.backend.Analytics.engine.QueryEngine;
+import com.groceryai.backend.dto.AgentResponse;
+import com.groceryai.backend.dto.ChartData;
+
+import java.util.Locale;
+import java.util.Set;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +30,10 @@ public class AgentService {
     private final AgentCrudTools agentCrudTools;
     private final ConversationService conversationService;
     private final QueryEngineTool queryEngineTool;
+    private final QueryExecutionContext queryExecutionContext;
+
+    private final ObjectMapper objectMapper =
+            new ObjectMapper().findAndRegisterModules();
 
     private static final String SYSTEM_PROMPT = """
         You are Grocery AI, an intelligent assistant for analyzing
@@ -88,14 +100,32 @@ public class AgentService {
         - Use tables or bullet points when useful.
         - Explain what the statistics mean instead of simply repeating raw data.
 
-        QUERY ENGINE TOOL SELECTION:
-        1. Use existing analytics tools first when they directly answer the user's question.
-        2. Use executeAnalyticsQuery when the requested analysis cannot be answered adequately by existing analytics tools.
-        3. Use executeAnalyticsQuery for custom combinations of tables, filters, aggregations, grouping, sorting, or comparisons.
-        4. Never use executeAnalyticsQuery to retrieve individual records. Use CRUD tools for individual records.
-        5. Never generate SQL yourself. Always provide a structured QueryPlan to executeAnalyticsQuery.
-        6. Use only tables, columns, and relationships supported by the database schema.
-        7. If the requested analysis is ambiguous, ask the user for clarification instead of guessing.
+            QUERY ENGINE TOOL SELECTION:
+            
+            1. For ordinary analytics requests, use existing analytics tools
+               first when they directly answer the user's question.
+            
+            2. When the user explicitly requests a chart, graph, pie chart,
+               bar chart, line chart or visualization, ALWAYS use
+               executeAnalyticsQuery to retrieve the dataset.
+            
+            3. Never use existing analytics tools as a substitute for
+               executeAnalyticsQuery when a chart is explicitly requested.
+            
+            4. Use executeAnalyticsQuery for custom combinations of tables,
+               filters, aggregations, grouping, sorting or comparisons.
+            
+            5. Never use executeAnalyticsQuery to retrieve individual records.
+               Use CRUD tools for individual records.
+            
+            6. Never generate SQL yourself. Always provide a structured
+               QueryPlan to executeAnalyticsQuery.
+            
+            7. Use only tables, columns and relationships supported
+               by the database schema.
+            
+            8. If a query fails validation, correct the QueryPlan
+               using the error message.
 
         DATABASE SCHEMA RULES FOR QUERY ENGINE:
         1. Use exact database table and column names.
@@ -109,6 +139,43 @@ public class AgentService {
            - sales.sales_date
         5. Never invent table names, column names, or relationships.
         6. If a query fails validation, correct the QueryPlan using the error message.
+        
+            CHART AND VISUALIZATION RULES:
+            
+            When the user explicitly requests a chart, graph, plot or visualization,
+            you MUST use executeAnalyticsQuery to retrieve the actual dataset.
+            
+            Do not invent, estimate or fabricate chart values.
+            
+            The chart must be based exclusively on the actual query result returned
+            by executeAnalyticsQuery.
+            
+            The query result must contain appropriate columns for visualization.
+            
+            VISUALIZATION REQUIREMENTS:
+            
+                When the user requests a chart, graph, pie chart, bar chart or any
+                other visualization:
+            
+                1. Execute the required analytics query using executeAnalyticsQuery.
+                2. Never represent a requested chart using text, ASCII symbols,
+                   Unicode squares or Markdown tables as a substitute.
+                3. The chart must be returned separately through the chart field
+                   of the API response.
+                4. The chart configuration must be generated from actual query results.
+                5. Continue providing a normal textual explanation in the answer field.
+                
+            IMPORTANT CHART RESPONSE RULES:
+            
+                - When the user requests a chart, generate the chart using
+                  executeAnalyticsQuery as instructed.
+                - Describe the chart and its findings using normal natural language.
+                - NEVER include JSON in your final answer.
+                - NEVER output chart configuration.
+                - NEVER output chart data, labels, values or chartType fields as JSON.
+                - The frontend renders the chart separately.
+                - Your final answer must contain only a short textual explanation
+                  of the displayed chart and its key insights.
         """;
 
     public AgentService(
@@ -116,17 +183,19 @@ public class AgentService {
             AgentTools agentTools,
             AgentCrudTools agentCrudTools,
             ConversationService conversationService,
-            QueryEngineTool queryEngineTool) {
+            QueryEngineTool queryEngineTool,
+            QueryExecutionContext queryExecutionContext) {
 
         this.chatClient = chatClientBuilder.build();
         this.agentTools = agentTools;
         this.agentCrudTools = agentCrudTools;
         this.conversationService = conversationService;
         this.queryEngineTool = queryEngineTool;
+        this.queryExecutionContext = queryExecutionContext;
     }
 
-    public String ask(String message, UUID conversationId) {
-
+    public AgentResponse ask(String message, UUID conversationId) {
+        queryExecutionContext.clear();
         // Load previous conversation messages.
         List<com.groceryai.backend.entity.Message> previousMessages =
                 conversationService.getMessages(conversationId);
@@ -164,6 +233,38 @@ public class AgentService {
             answer = "I couldn't generate an answer. Please try again.";
         }
 
+        ChartData chart = null;
+
+        if (requestsChart(message)) {
+
+            System.out.println("=== CHART REQUEST DETECTED ===");
+
+            QueryEngine.QueryResult queryResult =
+                    queryExecutionContext.getLastResult();
+
+            if (queryResult == null) {
+
+                System.out.println("=== NO QUERY ENGINE RESULT FOUND ===");
+
+            } else {
+
+                System.out.println("=== QUERY RESULT AVAILABLE ===");
+                System.out.println("Rows: " + queryResult.rowCount());
+
+                if (!queryResult.rows().isEmpty()) {
+                    System.out.println(
+                            "Columns: " + queryResult.rows().get(0).keySet()
+                    );
+
+                    chart = generateChart(message, queryResult);
+                }
+            }
+
+            System.out.println(
+                    "=== CHART GENERATED: " + (chart != null) + " ==="
+            );
+        }
+
         // Save the assistant response.
         conversationService.saveMessage(
                 conversationId,
@@ -171,6 +272,150 @@ public class AgentService {
                 answer
         );
 
-        return answer;
+        queryExecutionContext.clear();
+
+        return new AgentResponse(
+                conversationId,
+                answer,
+                chart
+        );
+    }
+    private boolean requestsChart(String message) {
+
+        String text = message.toLowerCase(Locale.ROOT);
+
+        return text.contains("chart")
+                || text.contains("graph")
+                || text.contains("plot")
+                || text.contains("pie")
+                || text.contains("bar chart")
+                || text.contains("line chart")
+                || text.contains("visualization")
+                || text.contains("visualisation")
+                || text.contains("граф")
+                || text.contains("диаграм")
+                || text.contains("courbe")
+                || text.contains("histogramme");
+    }
+
+
+    private ChartData generateChart(
+            String userMessage,
+            QueryEngine.QueryResult result
+    ) {
+        try {
+            if (result.rows() == null || result.rows().isEmpty()) {
+                return null;
+            }
+
+            Set<String> columns = result.rows().get(0).keySet();
+
+            String xKey = null;
+            String yKey = null;
+
+            String dateKeywords = "date month year time";
+
+            // First, look for a date or time column.
+            for (String column : columns) {
+                if (dateKeywords.contains(column.toLowerCase(Locale.ROOT))
+                        || column.toLowerCase(Locale.ROOT).contains("date")
+                        || column.toLowerCase(Locale.ROOT).contains("month")) {
+                    xKey = column;
+                    break;
+                }
+            }
+
+            // If no date column exists, use a non-numeric column.
+            if (xKey == null) {
+                for (String column : columns) {
+                    boolean numeric = result.rows().stream()
+                            .anyMatch(row -> row.get(column) instanceof Number);
+
+                    if (!numeric) {
+                        xKey = column;
+                        break;
+                    }
+                }
+            }
+
+            // Find a numeric column for the Y axis.
+            for (String column : columns) {
+                if (column.equals(xKey)) {
+                    continue;
+                }
+
+                boolean numeric = result.rows().stream()
+                        .anyMatch(row -> row.get(column) instanceof Number);
+
+                if (numeric) {
+                    yKey = column;
+                    break;
+                }
+            }
+
+            if (xKey == null || yKey == null) {
+                System.out.println("No suitable chart columns found.");
+                return null;
+            }
+
+            String request = userMessage.toLowerCase(Locale.ROOT);
+
+            String type;
+
+            if (request.contains("pie")
+                    || request.contains("distribution")
+                    || request.contains("proportion")
+                    || request.contains("дол")
+                    || request.contains("распредел")) {
+                type = "pie";
+            } else if (request.contains("line")
+                    || request.contains("trend")
+                    || request.contains("over time")
+                    || request.contains("monthly")
+                    || request.contains("daily")
+                    || request.contains("weekly")
+                    || request.contains("yearly")) {
+                type = "line";
+            } else {
+                type = "bar";
+            }
+
+            String title = "Analytics Chart";
+
+            return new ChartData(
+                    type,
+                    title,
+                    xKey,
+                    yKey,
+                    result.rows()
+            );
+
+        } catch (Exception e) {
+            System.err.println(
+                    "Chart generation failed: " + e.getMessage()
+            );
+            return null;
+        }
+    }
+
+
+    private String extractJsonObject(String response) {
+
+        if (response == null || response.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Empty chart configuration response"
+            );
+        }
+
+        int start = response.indexOf('{');
+        int end = response.lastIndexOf('}');
+
+        if (start == -1 || end == -1 || end < start) {
+            throw new IllegalArgumentException(
+                    "Invalid JSON response from Gemini"
+            );
+        }
+
+        return response.substring(start, end + 1);
     }
 }

@@ -4,5 +4,10 @@ import java.util.UUID;
 
 public record AgentResponse(
         UUID conversationId,
-        String answer
-) {}
+        String answer,
+        ChartData chart
+) {
+    public AgentResponse(UUID conversationId, String answer) {
+        this(conversationId, answer, null);
+    }
+}

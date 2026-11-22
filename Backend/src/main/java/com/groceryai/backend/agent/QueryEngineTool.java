@@ -14,9 +14,14 @@ public class QueryEngineTool {
 
     private final QueryEngine queryEngine;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final QueryExecutionContext queryExecutionContext;
 
-    public QueryEngineTool(QueryEngine queryEngine) {
+    public QueryEngineTool(
+            QueryEngine queryEngine,
+            QueryExecutionContext queryExecutionContext
+    ) {
         this.queryEngine = queryEngine;
+        this.queryExecutionContext = queryExecutionContext;
     }
 
     @Tool(description = """
@@ -95,6 +100,43 @@ public class QueryEngineTool {
                - Correct the QueryPlan.
                - Retry at most once.
                - Do not repeatedly call CRUD tools to work around query errors.
+            
+                    TEMPORAL GROUPING RULES:
+            
+                    When the user requests analytics grouped by date, day, month, or year,
+                    you MUST use the timeGrouping field in the corresponding Selection.
+            
+                    Available values:
+                    - "DAY" for daily grouping
+                    - "MONTH" for monthly grouping
+                    - "YEAR" for yearly grouping
+            
+                    Examples:
+            
+                    Monthly sales:
+                    {
+                      "field": {
+                        "table": "sales",
+                        "column": "sales_date"
+                      },
+                      "aggregation": null,
+                      "alias": "month",
+                      "timeGrouping": "MONTH"
+                    }
+            
+                    Daily sales:
+                    "timeGrouping": "DAY"
+            
+                    Yearly sales:
+                    "timeGrouping": "YEAR"
+            
+                    IMPORTANT:
+                    - The timeGrouping field must be included in the Selection.
+                    - The groupBy field must still contain the original date FieldRef.
+                    - Do not group by raw timestamps when the user requests monthly or yearly analytics.
+                    - Do not omit timeGrouping for temporal grouping requests.
+                    - For non-temporal fields, use null.
+            
     """)
     public String executeAnalyticsQuery(String queryPlanJson) {
         System.out.println("=== QUERY ENGINE TOOL CALLED ===");
@@ -106,6 +148,7 @@ public class QueryEngineTool {
             );
 
             QueryEngine.QueryResult result = queryEngine.execute(plan);
+            queryExecutionContext.setLastResult(result);
             System.out.println("=== QUERY EXECUTED SUCCESSFULLY ===");
             System.out.println("QUERY RESULT:");
             System.out.println(objectMapper.writeValueAsString(result));

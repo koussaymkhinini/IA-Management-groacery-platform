@@ -25,7 +25,6 @@ public class SqlQueryBuilder {
             schema.put(table.tableName(), table);
         }
 
-        // Collect all tables required by the query
         Set<String> requiredTables = new LinkedHashSet<>();
         requiredTables.add(plan.baseTable());
 
@@ -45,7 +44,6 @@ public class SqlQueryBuilder {
             }
         }
 
-        // Find JOIN paths from the base table
         List<JoinEdge> joins = new ArrayList<>();
 
         for (String table : requiredTables) {
@@ -66,7 +64,6 @@ public class SqlQueryBuilder {
             }
         }
 
-        // Assign aliases to tables
         Map<String, String> aliases = new LinkedHashMap<>();
         aliases.put(plan.baseTable(), "t0");
 
@@ -82,27 +79,17 @@ public class SqlQueryBuilder {
             }
         }
 
-        // Build SELECT clause
+        // Build SELECT clause.
         StringBuilder sql = new StringBuilder("SELECT ");
 
         List<String> selections = new ArrayList<>();
 
         for (QueryPlan.Selection selection : plan.selections()) {
 
-            String expression = buildFieldExpression(
-                    selection.field(),
+            String expression = buildSelectionExpression(
+                    selection,
                     aliases
             );
-
-            if (selection.aggregation() != null) {
-                expression = switch (selection.aggregation()) {
-                    case COUNT -> "COUNT(" + expression + ")";
-                    case SUM -> "SUM(" + expression + ")";
-                    case AVG -> "AVG(" + expression + ")";
-                    case MIN -> "MIN(" + expression + ")";
-                    case MAX -> "MAX(" + expression + ")";
-                };
-            }
 
             if (selection.alias() != null) {
                 expression += " AS " + quote(selection.alias());
@@ -113,13 +100,13 @@ public class SqlQueryBuilder {
 
         sql.append(String.join(", ", selections));
 
-        // Build FROM clause
+        // Build FROM clause.
         sql.append(" FROM ")
                 .append(quote(plan.baseTable()))
                 .append(" ")
                 .append(aliases.get(plan.baseTable()));
 
-        // Build JOIN clauses
+        // Build JOIN clauses.
         Set<String> joinedTables = new HashSet<>();
         joinedTables.add(plan.baseTable());
 
@@ -143,16 +130,16 @@ public class SqlQueryBuilder {
                 if (fromJoined && !toJoined) {
 
                     appendJoin(sql, edge, aliases);
-
                     joinedTables.add(edge.toTable());
+
                     iterator.remove();
                     progress = true;
 
                 } else if (toJoined && !fromJoined) {
 
                     appendJoin(sql, edge, aliases);
-
                     joinedTables.add(edge.fromTable());
+
                     iterator.remove();
                     progress = true;
 
@@ -170,7 +157,7 @@ public class SqlQueryBuilder {
             }
         }
 
-        // Build WHERE clause
+        // Build WHERE clause.
         List<Object> parameters = new ArrayList<>();
 
         if (plan.filters() != null && !plan.filters().isEmpty()) {
@@ -187,22 +174,43 @@ public class SqlQueryBuilder {
                     .append(String.join(" AND ", conditions));
         }
 
-        // Build GROUP BY clause
+        // Build GROUP BY clause.
         if (plan.groupBy() != null && !plan.groupBy().isEmpty()) {
 
             List<String> groupFields = new ArrayList<>();
 
             for (QueryPlan.FieldRef field : plan.groupBy()) {
-                groupFields.add(
-                        buildFieldExpression(field, aliases)
-                );
+
+                QueryPlan.Selection temporalSelection = plan.selections()
+                        .stream()
+                        .filter(selection ->
+                                selection.field().equals(field)
+                                        && selection.timeGrouping() != null)
+                        .findFirst()
+                        .orElse(null);
+
+                if (temporalSelection != null) {
+
+                    groupFields.add(
+                            buildTimeExpression(
+                                    buildFieldExpression(field, aliases),
+                                    temporalSelection.timeGrouping()
+                            )
+                    );
+
+                } else {
+
+                    groupFields.add(
+                            buildFieldExpression(field, aliases)
+                    );
+                }
             }
 
             sql.append(" GROUP BY ")
                     .append(String.join(", ", groupFields));
         }
 
-        // Build ORDER BY clause
+        // Build ORDER BY clause.
         if (plan.orderBy() != null && !plan.orderBy().isEmpty()) {
 
             Set<String> availableAliases = new HashSet<>();
@@ -233,13 +241,60 @@ public class SqlQueryBuilder {
                     .append(String.join(", ", orderFields));
         }
 
-        // Build LIMIT clause
+        // Build LIMIT clause.
         if (plan.limit() != null) {
             sql.append(" LIMIT ?");
             parameters.add(plan.limit());
         }
 
         return new BuiltQuery(sql.toString(), parameters);
+    }
+
+    private String buildSelectionExpression(
+            QueryPlan.Selection selection,
+            Map<String, String> aliases
+    ) {
+
+        String expression = buildFieldExpression(
+                selection.field(),
+                aliases
+        );
+
+        if (selection.timeGrouping() != null) {
+            expression = buildTimeExpression(
+                    expression,
+                    selection.timeGrouping()
+            );
+        }
+
+        if (selection.aggregation() != null) {
+            expression = switch (selection.aggregation()) {
+                case COUNT -> "COUNT(" + expression + ")";
+                case SUM -> "SUM(" + expression + ")";
+                case AVG -> "AVG(" + expression + ")";
+                case MIN -> "MIN(" + expression + ")";
+                case MAX -> "MAX(" + expression + ")";
+            };
+        }
+
+        return expression;
+    }
+
+    private String buildTimeExpression(
+            String field,
+            QueryPlan.TimeGrouping grouping
+    ) {
+
+        return switch (grouping) {
+            case DAY ->
+                    "TO_CHAR(DATE_TRUNC('day', " + field + "), 'YYYY-MM-DD')";
+
+            case MONTH ->
+                    "TO_CHAR(DATE_TRUNC('month', " + field + "), 'YYYY-MM')";
+
+            case YEAR ->
+                    "TO_CHAR(DATE_TRUNC('year', " + field + "), 'YYYY')";
+        };
     }
 
     private void appendJoin(
@@ -349,7 +404,6 @@ public class SqlQueryBuilder {
         };
     }
 
-    // Find the shortest path between two tables using foreign keys
     private List<JoinEdge> findJoinPath(
             String start,
             String target,
@@ -384,12 +438,10 @@ public class SqlQueryBuilder {
 
         if (!visited.contains(target)) {
             throw new IllegalArgumentException(
-                    "No foreign key path between "
-                            + start + " and " + target
+                    "No foreign key path between " + start + " and " + target
             );
         }
 
-        // Reconstruct the path from the target to the start
         List<JoinEdge> path = new ArrayList<>();
         String current = target;
 
@@ -412,7 +464,6 @@ public class SqlQueryBuilder {
         return path;
     }
 
-    // Get neighboring tables in both foreign key directions
     private List<JoinEdge> getNeighbors(
             String tableName,
             Map<String, DatabaseSchemaService.TableSchema> schema
@@ -424,7 +475,6 @@ public class SqlQueryBuilder {
 
             for (var fk : table.foreignKeys()) {
 
-                // Forward direction: child table to parent table
                 if (table.tableName().equals(tableName)) {
                     neighbors.add(new JoinEdge(
                             table.tableName(),
@@ -434,7 +484,6 @@ public class SqlQueryBuilder {
                     ));
                 }
 
-                // Reverse direction: parent table to child table
                 if (fk.referencedTable().equals(tableName)) {
                     neighbors.add(new JoinEdge(
                             tableName,
@@ -450,6 +499,7 @@ public class SqlQueryBuilder {
     }
 
     private String quote(String identifier) {
+
         if (identifier == null ||
                 !identifier.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
             throw new IllegalArgumentException("Invalid SQL identifier");

@@ -62,13 +62,16 @@ function App() {
                 userMessage,
                 conversationId
             );
+            console.log("BACKEND RESPONSE:", response);
+            console.log("CHART:", response.chart);
 
             setMessages((previous) => [
                 ...previous,
                 {
                     role: "assistant",
                     content: response.answer ??
-                        "The assistant returned an empty response."
+                        "The assistant returned an empty response.",
+                    chart: response.chart ?? null
                 }
             ]);
 

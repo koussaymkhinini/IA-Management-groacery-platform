@@ -12,26 +12,23 @@ public record QueryPlan(
         Integer limit
 ) {
 
-
     public record FieldRef(
             String table,
             String column
     ) {}
 
-
     public record Selection(
             FieldRef field,
             Aggregation aggregation,
-            String alias
+            String alias,
+            TimeGrouping timeGrouping
     ) {}
-
 
     public record Filter(
             FieldRef field,
             Operator operator,
             Object value
     ) {}
-
 
     public record Sort(
             String field,
@@ -44,6 +41,12 @@ public record QueryPlan(
         AVG,
         MIN,
         MAX
+    }
+
+    public enum TimeGrouping {
+        DAY,
+        MONTH,
+        YEAR
     }
 
     public enum Operator {

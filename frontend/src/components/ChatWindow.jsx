@@ -2,6 +2,7 @@
 import { Sparkles, TrendingUp, Package, Users } from "lucide-react";
 import Message from "./Message";
 import ChatInput from "./ChatInput";
+import ChartRenderer from "./ChartRenderer";
 
 const suggestions = [
     {
@@ -84,11 +85,13 @@ function ChatWindow({
                 ) : (
                     <div className="messages-container">
                         {messages.map((msg, index) => (
-                            <Message
-                                key={index}
-                                role={msg.role}
-                                content={msg.content}
-                            />
+                            <div key={msg.id ?? index}>
+                                <Message role={msg.role} content={msg.content} />
+
+                                {msg.chart && (
+                                    <ChartRenderer chart={msg.chart} />
+                                )}
+                            </div>
                         ))}
 
                         {loading && (

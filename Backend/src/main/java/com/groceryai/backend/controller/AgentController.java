@@ -33,14 +33,9 @@ public class AgentController {
         log.info("REQUEST RECEIVED");
 
         try {
-            String answer = agentService.ask(
+            return agentService.ask(
                     request.message(),
                     request.conversationId()
-            );
-
-            return new AgentResponse(
-                    request.conversationId(),
-                    answer
             );
 
         } finally {
