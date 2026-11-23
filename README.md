@@ -54,3 +54,14 @@ On the first launch, Docker creates a new PostgreSQL database.
 - **CSV Import:** Start PostgreSQL, then execute the Python script located in `database/import` to populate the database with the initial dataset.
 
 Make sure to configure the database credentials before running the import script.
+
+## Screenshots
+
+### Dashboard
+![workspace](screenshots/workspace.png)
+
+### AI Assistant
+![AI Assistant](screenshots/chat.png)
+
+### Data Visualization
+![visualisation](screenshots/data_visualisation.png)
